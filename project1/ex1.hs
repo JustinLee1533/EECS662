@@ -127,7 +127,7 @@ term = parens lexer expr
        <|> falseExpr
        <|> ifExpr
 
---parseABE :: ABE -> ABE			
+parseABE :: String -> ABE			
 parseABE = parseString expr
 
 eval :: ABE -> ABE
@@ -144,7 +144,8 @@ eval (Mult t1 t2) = let (Num v1) = (eval t1)
                     in (Num (v1*v2))
 eval (Div t1 t2) = let (Num v1) = (eval t1)
                        (Num v2) = (eval t2)
-                   in if (v2 == 0) then (error "error div by 0")else (Num (div v1 v2))
+                   in if (v2 == 0) then (error "error div by 0")
+                      else (Num (div v1 v2))
 eval (If0 t1 t2 t3) = let (Num v) = (eval t1)
                    in if (v == 0) then (eval t2) else (eval t3)
 eval (If t1 t2 t3) = let (Boolean v) = (eval t1)
@@ -159,20 +160,28 @@ eval (Leq t1 t2) = let (Num v1) = (eval t1)
                    in (Boolean (v1 <= v2))
                    
 
---interp :: String -> ABE
+interp :: String -> ABE
 interp = eval . parseABE
 
 --Testing portion below from Perry Alexander, where I added functionality 
 --for multiplication, division, and if0
 
--- AST Pretty Printer
+-- AST Pretty Printer TODO: add the rest
 pprint :: ABE -> String
 pprint (Num n) = show n
+pprint (Boolean n) = show n
 pprint (Plus n m) = "(" ++ pprint n ++ "+" ++ pprint m ++ ")"
 pprint (Minus n m) = "(" ++ pprint n ++ "-" ++ pprint m ++ ")"
 pprint (Mult n m) = "(" ++ pprint n ++ "*" ++ pprint m ++ ")"
 pprint (Div n m) = "(" ++ pprint n ++ "/" ++ pprint m ++ ")"
-pprint (If0 n m o) = "(" ++ "if0 " ++ pprint n ++ " then " ++ pprint m ++ " else " ++ pprint o ++ ")"
+pprint (If0 n m o) = "(" ++ "if0 " ++ pprint n ++ " then " ++ pprint m
+                     ++ " else " ++ pprint o ++ ")"
+pprint (If n m o) = "(" ++ "if " ++ pprint n ++ " then " ++ pprint m
+                     ++ " else " ++ pprint o ++ ")"
+pprint (And n m) = "(" ++ pprint n ++ " && " ++ pprint m ++ ")"
+pprint (Leq n m) = "(" ++ pprint n ++ "<=" ++ pprint m ++ ")"
+pprint (IsZero n) = "(" ++"isZero " ++ pprint n ++ ")"
+
 
 instance Arbitrary ABE where
   arbitrary =
@@ -181,6 +190,10 @@ instance Arbitrary ABE where
 genNum =
   do t <- choose (0,100)
      return (Num t)
+
+genBool =
+  do t <- choose (True,False)
+     return (Boolean t)
 
 genPlus n =
   do s <- genABE n
@@ -210,6 +223,27 @@ genIf0 n =
      u <- genABE n
      return (If0 s t u)
 
+genAnd n =
+  do s <- genABE n
+     t <- genABE n
+     return (And s t)
+
+genLeq n =
+  do s <- genABE n
+     t <- genABE n
+     return (Leq s t)
+
+genIsZero n =
+  do s <- genABE n
+     return (IsZero s)
+
+genIf n =
+  do s <- genABE n
+     t <- genABE n
+     u <- genABE n
+     return (If s t u)
+
+
 genABE :: Int -> Gen ABE
 genABE 0 =
   do term <- genNum
@@ -219,7 +253,11 @@ genABE n =
                    ,(genMinus (n-1))
                    ,(genMult (n-1))
                    ,(genDiv (n-1))
-                   ,(genIf0 (n-1))]
+                   ,(genIf0 (n-1))
+                   ,(genAnd (n-1))
+                   ,(genLeq (n-1))
+                   ,(genIsZero (n-1))
+                   ,(genIf (n-1))]
      return term
 
 -- QuickCheck 

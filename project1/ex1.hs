@@ -130,43 +130,107 @@ term = parens lexer expr
 parseABE :: String -> ABE			
 parseABE = parseString expr
 
-eval :: ABE -> ABE
-eval (Num n) = (Num n)
-eval (Boolean n) = (Boolean n)
-eval (Plus t1 t2) = let (Num v1) = (eval t1)
-                        (Num v2) = (eval t2)
-                    in (Num (v1+v2))
-eval (Minus t1 t2) = let (Num v1) = (eval t1)
-                         (Num v2) = (eval t2)
-                     in (Num (v1-v2))
-eval (Mult t1 t2) = let (Num v1) = (eval t1)
-                        (Num v2) = (eval t2)
-                    in (Num (v1*v2))
-eval (Div t1 t2) = let (Num v1) = (eval t1)
-                       (Num v2) = (eval t2)
-                   in if (v2 == 0) then (error "error div by 0")
-                      else (Num (div v1 v2))
-eval (If0 t1 t2 t3) = let (Num v) = (eval t1)
-                   in if (v == 0) then (eval t2) else (eval t3)
-eval (If t1 t2 t3) = let (Boolean v) = (eval t1)
-                   in if (v == True) then (eval t2) else (eval t3)
-eval (And t1 t2) = let (Boolean v1) = (eval t1)
-                       (Boolean v2) = (eval t2)
-                   in (Boolean (v1 && v2))
-eval (IsZero t) = let (Num v) = (eval t)
-                  in (Boolean (v == 0))
-eval (Leq t1 t2) = let (Num v1) = (eval t1)
-                       (Num v2) = (eval t2)
-                   in (Boolean (v1 <= v2))
-                   
 
-interp :: String -> ABE
+eval :: ABE -> (Either String ABE)
+
+eval (Num n) = (Right (Num n))
+
+eval (Boolean n) = (Right (Boolean n))
+
+eval (Plus t1 t2) = 
+ let r1 = (eval t1)
+     r2 = (eval t2)
+ in case r1 of
+    (Left m) -> r1
+    (Right (Num v1)) -> case r2 of
+                         (Left m) -> r2
+                         (Right (Num v2)) -> (Right(Num (v1+v2)))
+                         (Right _) -> (Left "Type error in +")
+    (Right _) -> (Left "Type error in +")
+
+eval (Minus t1 t2) = 
+ let r1 = (eval t1)
+     r2 = (eval t2)
+ in case r1 of
+    (Left m) -> r1
+    (Right (Num v1)) -> case r2 of
+                        (Left m) -> r2
+                        (Right (Num v2)) -> (Right(Num (v1-v2)))
+                        (Right _) -> (Left "Type error in -")
+    (Right _) -> (Left "Type error in -")
+
+eval (Mult t1 t2) = 
+ let r1 = (eval t1)
+     r2 = (eval t2)
+ in case r1 of
+    (Left m) -> r1
+    (Right (Num v1)) -> case r2 of
+                        (Left m) -> r2
+                        (Right (Num v2)) -> (Right(Num (v1*v2)))
+                        (Right _) -> (Left "Type error in *")
+    (Right _) -> (Left "Type error in *")
+
+eval (Div t1 t2) =  
+ let r1 = (eval t1)
+     r2 = (eval t2)
+ in case r1 of
+    (Left m) -> r1
+    (Right (Num v1)) -> case r2 of
+                        (Left m) -> r2
+                        (Right (Num v2)) -> (Right(Num (div v1 v2)))
+                        (Right _) -> (Left "Type error in div")
+    (Right _) -> (Left "Type error in div")
+
+eval (If0 t1 t2 t3) = 
+ let r = (eval t1)
+ in case r of
+    (Left m) -> r
+    (Right (Num v)) -> (if (v == 0) then (eval t2) else (eval t3))
+    (Right _) -> (Left "Type error in If0")
+
+eval (If t1 t2 t3) = 
+ let r = (eval t1)
+ in case r of 
+    (Left m) -> r
+    (Right (Boolean v)) -> if (v) then (eval t2) else (eval t3)
+    (Right _) -> (Left "Type error in If")
+
+eval (And t1 t2) = 
+ let r1 = (eval t1)
+     r2 = (eval t2)
+ in case r1 of
+    (Left m) -> r1
+    (Right (Boolean v1)) -> case r2 of
+                            (Left m) -> r2
+                            (Right (Boolean v2)) -> (Right (Boolean (v1 && v2)))
+                            (Right _) -> (Left "Type error in And")
+    (Right _) -> (Left "Type error in And")
+                   
+eval (IsZero t) = 
+ let v = (eval t)
+ in case v of
+    (Left m) -> v
+    (Right (Num v)) -> (Right (Boolean (v == 0)))
+    (Right _) -> (Left "Type error in isZero")
+
+eval (Leq t1 t2) = 
+ let r1 = (eval t1)
+     r2 = (eval t2)
+ in case r1 of
+    (Left m) -> r1
+    (Right (Num v1)) -> case r2 of
+                        (Left m) -> r2
+                        (Right (Num v2)) -> (Right(Boolean (v1 <= v2)))
+                        (Right _) -> (Left "Type error in Leq")
+    (Right _) -> (Left "Type error in Leq")
+                   
+interp :: String -> Either String ABE
 interp = eval . parseABE
 
 --Testing portion below from Perry Alexander, where I added functionality 
 --for multiplication, division, and if0
 
--- AST Pretty Printer TODO: add the rest
+-- AST Pretty Printer
 pprint :: ABE -> String
 pprint (Num n) = show n
 pprint (Boolean n) = show n

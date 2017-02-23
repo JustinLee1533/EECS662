@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module ParserUtils where
 
 import Control.Monad

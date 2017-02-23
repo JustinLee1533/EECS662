@@ -1,7 +1,5 @@
 {-|
 
-
-
    Author: Justin Lee
    KUID: 2393250
    Date: Thu Feb 9 2017
@@ -37,7 +35,7 @@ ABE ::= number | boolean
         if ABE then ABE else ABE
 -}
 
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs,TypeFamilies, FlexibleContexts  #-}
 
 import Control.Monad
 import Text.ParserCombinators.Parsec
@@ -73,7 +71,12 @@ data ABE where
  If :: ABE -> ABE -> ABE -> ABE
  deriving (Show, Eq)
 
---2. Parsec
+data TABE where
+  TNum :: TABE
+  TBool :: TABE
+  deriving (Show,Eq)
+
+--Parsec
 expr :: Parser ABE
 expr = buildExpressionParser operators term
 
@@ -166,7 +169,8 @@ eval (Mult t1 t2) =
     (Left m) -> r1
     (Right (Num v1)) -> case r2 of
                         (Left m) -> r2
-                        (Right (Num v2)) -> (Right(Num (v1*v2)))
+                        (Right (Num v2)) -> if (v2 == 0) then 
+                         (Left "divide by 0 error") else (Right(Num (v1*v2)))
                         (Right _) -> (Left "Type error in *")
     (Right _) -> (Left "Type error in *")
 
@@ -223,7 +227,41 @@ eval (Leq t1 t2) =
                         (Right (Num v2)) -> (Right(Boolean (v1 <= v2)))
                         (Right _) -> (Left "Type error in Leq")
     (Right _) -> (Left "Type error in Leq")
-                   
+ 
+--typeof, for static type checking                  
+typeof :: ABE -> (Either String TABE)
+typeof (Num x) = (Right TNum)
+typeof (Boolean b) = (Right TBool)
+typeof (Plus l r) = let l' = (typeof l)
+                        r' = (typeof r)
+                     in if l'==(Right TNum) && r'==(Right TNum)
+                        then (Right TNum)
+                        else Left "Type Mismatch in +"
+typeof (Minus l r) = let l' = (typeof l)
+                         r' = (typeof r)
+                     in if l'==(Right TNum) && r'==(Right TNum)
+                        then (Right TNum)
+                        else Left "Type Mismatch in -"
+typeof (And l r) = if (typeof l) == (Right TBool)
+                      && (typeof r) == (Right TBool)
+                   then (Right TBool)
+                   else Left "Type mismatch in &&"
+typeof (Leq l r) = if (typeof l) == (Right TNum) && (typeof r) == (Right TNum)
+                   then (Right TBool)
+                   else Left "Type mismatch in <="
+typeof (IsZero v) = if (typeof v) == (Right TNum)
+                    then (Right TBool)
+                    else Left "Type mismatch in IsZero"
+typeof (If c t e) = if (typeof c) == Right TBool
+                       && (typeof t)==(typeof e)
+                    then (typeof t)
+                    else Left "Type mismatch in if"
+typeof (If0 c t e) = if (typeof c) == Right TNum
+                       && (typeof t)==(typeof e)
+                    then (typeof t)
+                    else Left "Type mismatch in if"
+
+--Interp
 interp :: String -> Either String ABE
 interp = eval . parseABE
 

@@ -35,7 +35,7 @@ ABE ::= number | boolean
         if ABE then ABE else ABE
 -}
 
-{-# LANGUAGE GADTs,TypeFamilies, FlexibleContexts  #-}
+{-# LANGUAGE GADTs #-}
 
 import Control.Monad
 import Text.ParserCombinators.Parsec
@@ -133,11 +133,8 @@ term = parens lexer expr
 parseABE :: String -> ABE			
 parseABE = parseString expr
 
-
 eval :: ABE -> (Either String ABE)
-
 eval (Num n) = (Right (Num n))
-
 eval (Boolean n) = (Right (Boolean n))
 
 eval (Plus t1 t2) = 
@@ -181,6 +178,7 @@ eval (Div t1 t2) =
     (Left m) -> r1
     (Right (Num v1)) -> case r2 of
                         (Left m) -> r2
+                        (Right (Num 0)) -> (Left "Eval error: divide by 0")
                         (Right (Num v2)) -> (Right(Num (div v1 v2)))
                         (Right _) -> (Left "Type error in div")
     (Right _) -> (Left "Type error in div")
@@ -234,16 +232,28 @@ typeof (Num x) = (Right TNum)
 typeof (Boolean b) = (Right TBool)
 typeof (Plus l r) = let l' = (typeof l)
                         r' = (typeof r)
-                     in if l'==(Right TNum) && r'==(Right TNum)
+                     in if (l'==(Right TNum) && r'==(Right TNum))
                         then (Right TNum)
                         else Left "Type Mismatch in +"
 typeof (Minus l r) = let l' = (typeof l)
                          r' = (typeof r)
-                     in if l'==(Right TNum) && r'==(Right TNum)
+                     in if (l'==(Right TNum) && r'==(Right TNum))
                         then (Right TNum)
                         else Left "Type Mismatch in -"
-typeof (And l r) = if (typeof l) == (Right TBool)
-                      && (typeof r) == (Right TBool)
+typeof (Mult l r) = let l' = (typeof l)
+                        r' = (typeof r)
+                     in if (l'==(Right TNum) && r'==(Right TNum))
+                        then (Right TNum)
+                        else Left "Type Mismatch in *"
+typeof (Div l r) = let l' = (typeof l)
+                       r' = (typeof r)
+                     in if (l'==(Right TNum) && r'==(Right TNum))
+                        then if (r ==  Num 0) 
+                             then (Left "divide by 0 error")
+                             else (Right TNum)
+                        else Left "Type Mismatch in Div"
+typeof (And l r) = if ((typeof l) == (Right TBool)
+                      && (typeof r) == (Right TBool))
                    then (Right TBool)
                    else Left "Type mismatch in &&"
 typeof (Leq l r) = if (typeof l) == (Right TNum) && (typeof r) == (Right TNum)
@@ -261,9 +271,46 @@ typeof (If0 c t e) = if (typeof c) == Right TNum
                     then (typeof t)
                     else Left "Type mismatch in if"
 
---Interp
+--optimize
+optimize :: ABE -> ABE
+optimize (Boolean b) = (Boolean b)
+optimize (Num x) = (Num x)
+optimize (Plus l (Num 0)) = optimize l
+optimize (Plus l r) = let l' = (optimize l)
+                          r' = (optimize r)
+                      in (Plus l' r')
+optimize (If (Boolean True) t e) = (optimize t)
+optimize (If c t e) = (If (optimize c) (optimize t) (optimize e))
+--TODO:optimize these
+optimize (Minus l r) = let l' = (optimize l)
+                           r' = (optimize r)
+                       in (Minus l' r')
+optimize (Mult l r) = let l' = (optimize l)
+                          r' = (optimize r)
+                      in (Mult l' r')
+optimize (Div l r) = let l' = (optimize l)
+                         r' = (optimize r)
+                     in (Div l' r')
+optimize (And l r) = let l' = (optimize l)
+                         r' = (optimize r)
+                     in (And l' r')
+optimize (Leq l r) = let l' = (optimize l)
+                         r' = (optimize r)
+                     in (Leq l' r')
+optimize (IsZero l) = let l' = (optimize l)
+                      in (IsZero l')
+optimize (If0 c t e) = (If0 (optimize c) (optimize t) (optimize e))
+
+
+
+--Interp TODO: took out Right from eval p
 interp :: String -> Either String ABE
-interp = eval . parseABE
+interp e = let p=(parseABE e) in
+                  case (typeof p) of
+                    (Right _) -> (eval p)
+                    (Left m) -> (Left m)
+
+interpErr = eval . parseABE
 
 --Testing portion below from Perry Alexander, where I added functionality 
 --for multiplication, division, and if0
@@ -351,7 +398,7 @@ genABE 0 =
   do term <- genNum
      return term
 genABE n =
-  do term <- oneof [genNum,(genPlus (n-1))
+  do term <- oneof [genNum,genBool,(genPlus (n-1))
                    ,(genMinus (n-1))
                    ,(genMult (n-1))
                    ,(genDiv (n-1))
@@ -371,3 +418,32 @@ testEval' :: Int -> IO ()
 testEval' n = quickCheckWith stdArgs {maxSuccess=n}
   (\t -> (interp $ pprint t) == (eval t))
 
+testTypedEval :: Int -> IO ()
+testTypedEval n = quickCheckWith stdArgs {maxSuccess=n}
+                  (\t -> case typeof t of
+                           (Right _) -> eval (parseABE (pprint t)) == (eval t)
+                           (Left _) -> True)
+
+testErrThenTyped :: Int -> IO ()
+testErrThenTyped n =
+  quickCheckWith stdArgs {maxSuccess=n}
+  (\t -> let t' = pprint t in
+           case (interpErr t') of
+             (Right v) -> (Right v) == interp t'
+             (Left _) -> True)
+               
+testTypedThenErr :: Int -> IO ()
+testTypedThenErr n =
+  quickCheckWith stdArgs {maxSuccess=n}
+  (\t -> let t' = pprint t in
+           case (interp t') of
+             (Right v) -> (Right v) == interpErr t'
+             (Left _) -> True)
+{-
+testOptimizedEval :: Int -> IO ()
+testOptimizedEval n =
+  quickCheckWith stdArgs {maxSuccess=n}
+  (\t -> case typeof [] t of
+           (Right _) -> ((eval []) . optimize) t == (eval [] t)
+           (Left _) -> True)
+-}

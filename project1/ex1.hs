@@ -2,7 +2,7 @@
 
    Author: Justin Lee
    KUID: 2393250
-   Date: Thu Feb 9 2017
+   Date: Thu Feb 23 2017
 
     Project 1: Exercise 2: a parser and interpreter for ABE supporting plus, 
     minus, division, multiplication, if, isZero, Leq
@@ -130,7 +130,7 @@ term = parens lexer expr
        <|> falseExpr
        <|> ifExpr
 
-parseABE :: String -> ABE			
+parseABE :: String -> ABE
 parseABE = parseString expr
 
 eval :: ABE -> (Either String ABE)
@@ -276,44 +276,59 @@ optimize :: ABE -> ABE
 optimize (Boolean b) = (Boolean b)
 optimize (Num x) = (Num x)
 optimize (Plus l (Num 0)) = optimize l
+optimize (Plus (Num 0) l) = optimize l
 optimize (Plus l r) = let l' = (optimize l)
                           r' = (optimize r)
                       in (Plus l' r')
 optimize (If (Boolean True) t e) = (optimize t)
 optimize (If c t e) = (If (optimize c) (optimize t) (optimize e))
 --TODO:optimize these
+optimize (Minus l (Num 0)) = optimize l
 optimize (Minus l r) = let l' = (optimize l)
                            r' = (optimize r)
                        in (Minus l' r')
+optimize (Mult (Num 0) r) = optimize (Num 0)
+optimize (Mult l (Num 0)) = optimize (Num 0)
 optimize (Mult l r) = let l' = (optimize l)
                           r' = (optimize r)
                       in (Mult l' r')
 optimize (Div l r) = let l' = (optimize l)
                          r' = (optimize r)
                      in (Div l' r')
+optimize (And (Boolean False) r) = optimize (Boolean False)
 optimize (And l r) = let l' = (optimize l)
                          r' = (optimize r)
                      in (And l' r')
 optimize (Leq l r) = let l' = (optimize l)
                          r' = (optimize r)
                      in (Leq l' r')
+optimize (IsZero (Num 0)) = optimize (Boolean True)
 optimize (IsZero l) = let l' = (optimize l)
                       in (IsZero l')
+optimize (If0 (Num 0) c e) = optimize c
 optimize (If0 c t e) = (If0 (optimize c) (optimize t) (optimize e))
 
 
 
---Interp TODO: took out Right from eval p
+--Interp functions
+
+--parses, type checks, optimizes, then evaluates
 interp :: String -> Either String ABE
 interp e = let p=(parseABE e) in
-                  case (typeof p) of
-                    (Right _) -> (eval p)
+                  case (typeof p) of 
+                    (Right _) -> let o = optimize p in (eval o)
                     (Left m) -> (Left m)
 
+--simply parses then evaluates
+interpErr :: String -> Either String ABE
 interpErr = eval . parseABE
 
---Testing portion below from Perry Alexander, where I added functionality 
---for multiplication, division, and if0
+--parses, optimizes, then evaluates
+interpOpt :: String -> Either String ABE
+interpOpt = eval . optimize . parseABE
+
+
+--Testing portion below from Prof Alexander, where I added more functionality 
 
 -- AST Pretty Printer
 pprint :: ABE -> String
@@ -439,11 +454,11 @@ testTypedThenErr n =
            case (interp t') of
              (Right v) -> (Right v) == interpErr t'
              (Left _) -> True)
-{-
+
 testOptimizedEval :: Int -> IO ()
 testOptimizedEval n =
   quickCheckWith stdArgs {maxSuccess=n}
-  (\t -> case typeof [] t of
-           (Right _) -> ((eval []) . optimize) t == (eval [] t)
+  (\t -> case typeof t of
+           (Right _) -> ((eval) . optimize) t == (eval t)
            (Left _) -> True)
--}
+

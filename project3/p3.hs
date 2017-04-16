@@ -76,9 +76,16 @@ import Test.QuickCheck.Monadic
 import System.IO.Unsafe(unsafePerformIO)
 
 main = do
- return(0)
+
+
+  return(0)
 
 type Env = [(String, CFAE)]
+--prelude
+--prelude = [( "inc", (Lambda x x+1)), ("dec", (Lambda x x-1))]
+--preludeV = [( "inc", (ClosureV x x+1 [])), ("dec", (ClosureV x x-1 []))]
+inc = (\x -> x+1)
+dec = (\x -> x-1)
 
 --Dynamically scoped, strict evaluation; Your interpreter will use deferred
 --substitution for efficiency and closures to represent function values:
@@ -205,3 +212,28 @@ evalStatCFAE envV (If c t e) =  do
    case c' of
      (NumV v1) -> if v1 == 0 then (evalStatCFAE envV t) else (evalStatCFAE envV e)
      _ -> (Nothing)
+
+interpStatCFAE :: String -> Maybe CFAEValue
+interpStatCFAE t = let r = parseCFAE t in (evalStatCFAE [] r)
+
+--
+--exercise 3
+--
+elabCFBAE :: CFBAE -> CFAE
+elabCFBAE (NumX n) = (Num n)
+elabCFBAE (PlusX l r) = (Plus (elabCFBAE l) (elabCFBAE r))
+elabCFBAE (MinusX l r) = (Minus (elabCFBAE l) (elabCFBAE r))
+elabCFBAE (MultX l r) = (Mult (elabCFBAE l) (elabCFBAE r))
+elabCFBAE (DivX l r) = (Div (elabCFBAE l) (elabCFBAE r))
+elabCFBAE (BindX i v b) = (App (Lambda i (elabCFBAE b)) (elabCFBAE v))
+elabCFBAE (LambdaX i b) = (Lambda i (elabCFBAE b))
+elabCFBAE (AppX f a) = (App (elabCFBAE f) (elabCFBAE a))
+elabCFBAE (IdX id) = (Id id)
+elabCFBAE (IfX c t e) = (If (elabCFBAE c) (elabCFBAE t) (elabCFBAE e))
+
+evalCFBAE :: EnvV -> CFBAE -> Maybe CFAEValue
+evalCFBAE envV a = (evalStatCFAE envV (elabCFBAE a))
+
+--interp x (eval [] (parse x))
+interpCFBAE :: String -> Maybe CFAEValue
+interpCFBAE t = let r = (parseCFBAE t) in (evalCFBAE [] r)

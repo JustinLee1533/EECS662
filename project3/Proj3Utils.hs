@@ -105,67 +105,8 @@ type EnvV = [(String, CFAEValue)]
 data CFAEValue where
   NumV :: Int -> CFAEValue
   ClosureV :: String -> CFAE -> EnvV -> CFAEValue
-  --PlusV :: CFAEValue -> CFAEValue -> CFAEValue
-  --MinusV :: CFAEValue -> CFAEValue -> CFAEValue
-  --MultV :: CFAEValue -> CFAEValue -> CFAEValue
-  --DivV :: CFAEValue -> CFAEValue -> CFAEValue
-  --LambdaV :: String -> CFAEValue -> CFAEValue
-  --AppV :: CFAEValue -> CFAEValue -> CFAEValue
-  --IdV :: String -> CFAEValue
-  --IfV :: CFAEValue -> CFAEValue -> CFAEValue -> CFAEValue
   deriving (Show,Eq)
 
--- CFAEValue Parser TODO: no clue what needs to be done here, think it just
--- parses the same as CFAE?
-
-exprV :: Parser CFAE
-exprV = buildExpressionParser opTable termV
-{-
-opTableV = [ [ inFix "*" Mult AssocLeft
-            , inFix "/" Div AssocLeft ]
-          , [ inFix "+" Plus AssocLeft
-            , inFix "-" Minus AssocLeft ]
-          ]
-
-numExprV :: Parser CFAEValue
-numExprV = do i <- integer lexer
-              return(NumV (fromInteger i))
-
-lambdaExprV :: Parser CFAEValue
-lambdaExprX = do reserved lexer "lambda"
-                 i <- identifier lexer
-                 reserved lexer "in"
-                 e <- exprV
-                 return (LambdaV i e)
-
-appExprV :: Parser CFAEValue
-appExprV = do reserved lexer "app"
-              e1 <- exprV
-              e2 <- exprV
-              return (App e1 e2)
-
-ifExprV :: Parser CFAEValue
-ifExprV = do reserved lexer "if"
-             c <- exprX
-             reserved lexer "then"
-             t <- exprX
-             reserved lexer "else"
-             e <- exprX
-             return (IfX c t e)
-
--}
-termV = parens lexer exprV
-       <|> numExpr
-       <|> identExpr
-       <|> ifExpr
-       <|> lambdaExpr
-       <|> appExpr
-
--- Parser invocation
-
-parseCFAEValue = parseString exprV
-
-parseCFAEValueFile = parseFile exprV
 --
 --End CFAEValue
 --
@@ -184,6 +125,7 @@ data CFBAE where
   AppX :: CFBAE -> CFBAE -> CFBAE
   IdX :: String -> CFBAE
   IfX :: CFBAE -> CFBAE -> CFBAE -> CFBAE
+--  IncX :: CFBAE -> CFBA
   deriving (Show,Eq)
 
 -- Parser

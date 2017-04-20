@@ -76,16 +76,14 @@ import Test.QuickCheck.Monadic
 import System.IO.Unsafe(unsafePerformIO)
 
 main = do
-
-
+  --inc = (\x -> x+1)
+  --dec = (\x -> x-1)
   return(0)
 
 type Env = [(String, CFAE)]
 --prelude
 --prelude = [( "inc", (Lambda x x+1)), ("dec", (Lambda x x-1))]
 --preludeV = [( "inc", (ClosureV x x+1 [])), ("dec", (ClosureV x x-1 []))]
-inc = (\x -> x+1)
-dec = (\x -> x-1)
 
 --Dynamically scoped, strict evaluation; Your interpreter will use deferred
 --substitution for efficiency and closures to represent function values:
@@ -151,7 +149,7 @@ evalDynCFAE env (If c t e) =  do
     _ -> (Nothing)
 
 interpDynCFAE :: String -> Maybe CFAE
-interpDynCFAE t = let r = parseCFAE t in (evalDynCFAE [] r)
+interpDynCFAE t = let r = parseCFAE t in (evalDynCFAE [("inc", (Lambda "x" (Plus (Id "x")(Num 1)))), ("dec", (Lambda "x" (Minus (Id "x")(Num 1))))] r)
 
 --exercise 2
 
@@ -214,7 +212,7 @@ evalStatCFAE envV (If c t e) =  do
      _ -> (Nothing)
 
 interpStatCFAE :: String -> Maybe CFAEValue
-interpStatCFAE t = let r = parseCFAE t in (evalStatCFAE [] r)
+interpStatCFAE t = let r = parseCFAE t in (evalStatCFAE [ ("inc", (ClosureV "x" (Plus (Id "x")(Num 1)) [])), ("dec", (ClosureV "x" (Minus (Id "x")(Num 1)) []))] r)
 
 --
 --exercise 3
@@ -236,4 +234,4 @@ evalCFBAE envV a = (evalStatCFAE envV (elabCFBAE a))
 
 --interp x (eval [] (parse x))
 interpCFBAE :: String -> Maybe CFAEValue
-interpCFBAE t = let r = (parseCFBAE t) in (evalCFBAE [] r)
+interpCFBAE t = let r = (parseCFBAE t) in (evalCFBAE [ ("inc", (ClosureV "x" (Plus (Id "x")(Num 1)) [])), ("dec", (ClosureV "x" (Minus (Id "x")(Num 1)) []))  ] r)
